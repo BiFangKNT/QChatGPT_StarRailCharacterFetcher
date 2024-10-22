@@ -1,49 +1,73 @@
-from pkg.plugin.context import register, handler, llm_func, BasePlugin, APIHost, EventContext
-from pkg.plugin.events import *  # 导入事件类
+# -*- coding: utf-8 -*-
+import re
+import requests
+from bs4 import BeautifulSoup
+from pkg.plugin.context import register, handler, BasePlugin, APIHost, EventContext, mirai
+from pkg.plugin.events import *
 
+@register(name="StarRailCharacterFetcher", description="爬取崩坏：星穹铁道角色信息",
+          version="1.0", author="BiFangKNT")
+class StarRailCharacterPlugin(BasePlugin):
 
-# 注册插件
-@register(name="Hello", description="hello world", version="0.1", author="RockChinQ")
-class MyPlugin(BasePlugin):
-
-    # 插件加载时触发
     def __init__(self, host: APIHost):
-        pass
+        super().__init__(host)
+        self.base_url = "https://homdgcat.wiki/sr/char?lang=CH"
 
     # 异步初始化
     async def initialize(self):
         pass
 
-    # 当收到个人消息时触发
     @handler(PersonNormalMessageReceived)
-    async def person_normal_message_received(self, ctx: EventContext):
-        msg = ctx.event.text_message  # 这里的 event 即为 PersonNormalMessageReceived 的对象
-        if msg == "hello":  # 如果消息为hello
-
-            # 输出调试信息
-            self.ap.logger.debug("hello, {}".format(ctx.event.sender_id))
-
-            # 回复消息 "hello, <发送者id>!"
-            ctx.add_return("reply", ["hello, {}!".format(ctx.event.sender_id)])
-
-            # 阻止该事件默认行为（向接口获取回复）
-            ctx.prevent_default()
-
-    # 当收到群消息时触发
     @handler(GroupNormalMessageReceived)
-    async def group_normal_message_received(self, ctx: EventContext):
-        msg = ctx.event.text_message  # 这里的 event 即为 GroupNormalMessageReceived 的对象
-        if msg == "hello":  # 如果消息为hello
+    async def on_message(self, ctx: EventContext):
+        message = ctx.event.query.message_chain.to_plain_text()
+        match = re.match(r"爬取崩铁：(.{1,5})", message)
+        if match:
+            character_name = match.group(1)
+            result = await self.fetch_character_info(character_name)
+            if result:
+                ctx.add_return('reply', [mirai.Plain(result)])
+            else:
+                ctx.add_return('reply', [mirai.Plain("未找到该角色信息。")])
 
-            # 输出调试信息
-            self.ap.logger.debug("hello, {}".format(ctx.event.sender_id))
+    async def fetch_character_info(self, character_name):
+        response = requests.get(self.base_url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        character_cards = soup.select('div.avatar-card.hover-shadow.rar-5')
+        
+        for card in character_cards:
+            if character_name in card.select('p')[1].text:
+                detail_url = "https://homdgcat.wiki" + card.select_one('a')['href']
+                character_info = self.get_character_details(detail_url)
+                return f"找到角色 {character_name} 的信息：\n{character_info}\n详情链接：{detail_url}"
+        return None
 
-            # 回复消息 "hello, everyone!"
-            ctx.add_return("reply", ["hello, everyone!"])
-
-            # 阻止该事件默认行为（向接口获取回复）
-            ctx.prevent_default()
-
-    # 插件卸载时触发
+    def get_character_details(self, url):
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # 提取角色基本信息
+        basic_info = soup.select_one('div.basic-info')
+        info_text = ""
+        if basic_info:
+            for p in basic_info.select('p'):
+                info_text += f"{p.text.strip()}\n"
+        
+        # 提取角色描述
+        description = soup.select_one('div.description')
+        if description:
+            info_text += f"\n描述：{description.text.strip()}\n"
+        
+        # 提取技能信息（这里只提取技能名称作为示例）
+        skills = soup.select('div.skill-item')
+        if skills:
+            info_text += "\n技能：\n"
+            for skill in skills:
+                skill_name = skill.select_one('div.skill-name')
+                if skill_name:
+                    info_text += f"- {skill_name.text.strip()}\n"
+        
+        return info_text.strip()
+    
     def __del__(self):
         pass
