@@ -1,4 +1,8 @@
-# HelloPlugin
+# StarRailCharacterFetcher
+
+##公告
+
+此插件由于目标网站结构复杂，并且受限于上层框架限制（如依赖、规模），暂停开发。目前可基本实现快照功能，但是可能会碰到网站的防爬机制，目前以原生框架环境难以支持绕过。
 
 <!--
 ## 插件开发者详阅
@@ -39,4 +43,9 @@
 
 ## 使用
 
-<!-- 插件开发者自行填写插件使用说明 -->
+**效果展示**
+
+![image](https://github.com/user-attachments/assets/b1d205f5-4b02-4186-94ab-e2ea145dcc9a)
+
+![image](https://github.com/user-attachments/assets/d90a41a3-9a63-4656-b04f-d9d5c0dd8859)
+
